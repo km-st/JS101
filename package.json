@@ -1,0 +1,11 @@
+{
+  "name": "JS101",
+  "version": "1.0.0",
+  "main": "index.js",
+  "repository": "git@github.com:km-st/JS101.git",
+  "author": "km-st <stonestephano@gmail.com>",
+  "license": "MIT",
+  "dependencies": {
+    "readline-sync": "^1.4.10"
+  }
+}
