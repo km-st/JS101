@@ -3,7 +3,9 @@ const readline = require("readline-sync");
 const INITIAL_MARKER = " ";
 const HUMAN_MARKER = "X";
 const COMPUTER_MARKER = "O";
-const REQUIRED_NUMBER_OF_WINS = 5;
+const REQUIRED_NUMBER_OF_WINS = 2;
+const FIRST_MOVER = "choose";
+
 let winningLines = [
   [1, 2, 3],
   [4, 5, 6],
@@ -67,7 +69,7 @@ function playerChoosesSquare(board) {
   board[square] = HUMAN_MARKER;
 }
 
-const findDefensiveMove = (defendAgainst) => (board) => {
+const findAtRiskSquare = (defendAgainst) => (board) => {
   let defensiveMove = null;
 
   for (let winningLine of winningLines) {
@@ -91,15 +93,19 @@ const findDefensiveMove = (defendAgainst) => (board) => {
   return defensiveMove;
 };
 
-const findComputerDefensiveMove = findDefensiveMove(HUMAN_MARKER);
+const findComputerDefensiveSquare = findAtRiskSquare(HUMAN_MARKER);
+const findComputerOffensiveSquare = findAtRiskSquare(COMPUTER_MARKER);
 
 function computerChoosesSquare(board) {
-  const defensivePosition = findComputerDefensiveMove(board);
+  const defensivePosition = findComputerDefensiveSquare(board);
+  const offensivePosition = findComputerOffensiveSquare(board);
   let randomIndex = Math.floor(Math.random() * emptySquares(board).length);
-  let square =
-    defensivePosition !== null
-      ? defensivePosition
-      : emptySquares(board)[randomIndex];
+  let square = (() => {
+    if (offensivePosition !== null) return offensivePosition;
+    if (defensivePosition !== null) return defensivePosition;
+    if (board[5] === " ") return 5;
+    return emptySquares(board)[randomIndex];
+  })();
   board[square] = COMPUTER_MARKER;
 }
 
@@ -159,22 +165,61 @@ let scores = {
   Player: 0,
 };
 
+const getCurrentPLayer = () => {
+  let currentPlayer;
+
+  switch (FIRST_MOVER) {
+    case "choose":
+      while (true) {
+        prompt("Who gets first move? Player (1) or Computer (2)");
+        selection = readline.question();
+
+        if (selection === "1") {
+          currentPlayer = "player";
+          break;
+        } else if (selection === "2") {
+          currentPlayer = "computer";
+          break;
+        } else {
+          prompt("Please select a valid option: Player (1) or Computer (2)");
+        }
+      }
+      break;
+    case "player":
+      currentPlayer = "player";
+    case "computer":
+      currentPlayer = "computer";
+  }
+
+  return currentPlayer;
+};
+
+const alternatePlayer = (currentPlayer) => {
+  return currentPlayer === "player" ? "computer" : "player";
+};
+
+const chooseSquare = (board, currentPlayer) => {
+  if (currentPlayer === "player") {
+    playerChoosesSquare(board);
+  } else {
+    computerChoosesSquare(board);
+  }
+};
+
 while (true) {
   let board = initializeBoard();
+  let currentPlayer = getCurrentPLayer();
+  let roundWinner;
 
   while (true) {
     displayBoard(board);
 
-    playerChoosesSquare(board);
-    if (someoneWon(board) || boardFull(board)) break;
-
-    computerChoosesSquare(board);
+    chooseSquare(board, currentPlayer);
+    currentPlayer = alternatePlayer(currentPlayer);
     if (someoneWon(board) || boardFull(board)) break;
   }
 
   displayBoard(board);
-
-  let roundWinner;
 
   if (someoneWon(board)) {
     roundWinner = detectRoundWinner(board);
@@ -201,13 +246,16 @@ while (true) {
       ? "Play another match? (y or n)"
       : "Play another round? (y or n)"
   );
-  let answer = readline.question().toLowerCase()[0];
-  if (answer !== "y") break;
+
+  let playAgainAnswer;
+
+  while (true) {
+    playAgainAnswer = readline.question().toLowerCase();
+    if (playAgainAnswer === "y" || playAgainAnswer === "n") break;
+    prompt("Please enter a valid choice (y or n)");
+  }
+
+  if (playAgainAnswer === "n") break;
 }
 
 prompt("Thanks for playing Tic Tac Toe!");
-
-/*
-  defensive AI 
-    - if there are squares that can be 
-*/
