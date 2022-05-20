@@ -16,6 +16,13 @@ const VALUES = [
   "K",
   "A",
 ];
+const REQUIRED_NUMBER_OF_WINS = 5;
+const REQUIRED_TOTAL = 21;
+const DEALER_MINIMUM_TARGET = REQUIRED_TOTAL - 4;
+let scores = {
+  dealer: 0,
+  player: 0,
+};
 
 function prompt(message) {
   console.log(`=> ${message}`);
@@ -65,23 +72,20 @@ function total(cards) {
   values
     .filter((value) => value === "A")
     .forEach((_) => {
-      if (sum > 21) sum -= 10;
+      if (sum > REQUIRED_TOTAL) sum -= 10;
     });
 
   return sum;
 }
 
-function busted(cards) {
-  return total(cards) > 21;
+function busted(total) {
+  return total > REQUIRED_TOTAL;
 }
 
-function detectResult(dealerCards, playerCards) {
-  let playerTotal = total(playerCards);
-  let dealerTotal = total(dealerCards);
-
-  if (playerTotal > 21) {
+function detectResult(dealerTotal, playerTotal) {
+  if (playerTotal > REQUIRED_TOTAL) {
     return "PLAYER_BUSTED";
-  } else if (dealerTotal > 21) {
+  } else if (dealerTotal > REQUIRED_TOTAL) {
     return "DEALER_BUSTED";
   } else if (dealerTotal < playerTotal) {
     return "PLAYER";
@@ -92,8 +96,8 @@ function detectResult(dealerCards, playerCards) {
   }
 }
 
-function displayResults(dealerCards, playerCards) {
-  let result = detectResult(dealerCards, playerCards);
+function displayResults(dealerTotal, playerTotal) {
+  let result = detectResult(dealerTotal, playerTotal);
 
   switch (result) {
     case "PLAYER_BUSTED":
@@ -116,8 +120,14 @@ function displayResults(dealerCards, playerCards) {
 function playAgain() {
   console.log("-------------");
   prompt("Do you want to play again? (y or n)");
-  let answer = readline.question();
-  return answer.toLowerCase()[0] === "y";
+  let answer = readline.question().toLowerCase();
+
+  while (true) {
+    if (answer === "y" || answer === "n") break;
+    prompt("Please enter a valid choice (y or n)");
+  }
+
+  return answer === "y";
 }
 
 function popTwoFromDeck(deck) {
@@ -126,6 +136,68 @@ function popTwoFromDeck(deck) {
 
 function hand(cards) {
   return cards.map((card) => `${card[1]}${card[0]}`).join(" ");
+}
+
+function roundSummary({ dealerCards, playerCards, dealerTotal, playerTotal }) {
+  console.log("==============");
+  prompt(`Dealer has ${dealerCards}, for a total of: ${dealerTotal}`);
+  prompt(`Player has ${playerCards}, for a total of: ${playerTotal}`);
+  console.log("==============");
+
+  updateScore(dealerTotal, playerTotal);
+  displayResults(dealerTotal, playerTotal);
+  prompt(`You: ${scores.player}\tDealer: ${scores.dealer}`);
+}
+
+function resetScore() {
+  scores.player = 0;
+  scores.dealer = 0;
+}
+
+function updateScore(dealerTotal, playerTotal) {
+  let result = detectResult(dealerTotal, playerTotal);
+
+  switch (result) {
+    case "PLAYER_BUSTED":
+      scores.dealer++;
+      break;
+    case "DEALER_BUSTED":
+      scores.player++;
+      break;
+    case "PLAYER":
+      scores.player++;
+      break;
+    case "DEALER":
+      scores.dealer++;
+      break;
+    case "TIE":
+      break; // do nothing
+  }
+}
+
+function detectMatchWinner() {
+  const winner = Object.entries(scores).find((scoreEntry) => {
+    const [_, score] = scoreEntry;
+    return score === REQUIRED_NUMBER_OF_WINS;
+  });
+
+  return winner ? winner[0] : winner;
+}
+
+function matchSummary() {
+  const winner = detectMatchWinner();
+  if (winner) resetScore();
+
+  switch (winner) {
+    case "player":
+      prompt("You have won the match");
+      break;
+    case "dealer":
+      prompt("Dealer has won the match");
+      break;
+    default:
+      break;
+  }
 }
 
 while (true) {
@@ -139,6 +211,8 @@ while (true) {
   // initial deal
   playerCards.push(...popTwoFromDeck(deck));
   dealerCards.push(...popTwoFromDeck(deck));
+  let playerTotal = total(playerCards);
+  let dealerTotal = total(dealerCards);
 
   prompt(`Dealer has ${dealerCards[0]} and ?`);
   prompt(
@@ -159,53 +233,56 @@ while (true) {
 
     if (playerTurn === "h") {
       playerCards.push(deck.pop());
+      playerTotal = total(playerCards);
       prompt("You chose to hit!");
       prompt(`Your cards are now: ${hand(playerCards)}`);
-      prompt(`Your total is now: ${total(playerCards)}`);
+      prompt(`Your total is now: ${playerTotal}`);
     }
 
-    if (playerTurn === "s" || busted(playerCards)) break;
+    if (playerTurn === "s" || busted(playerTotal)) break;
   }
 
-  if (busted(playerCards)) {
-    displayResults(dealerCards, playerCards);
+  playerTotal = total(playerCards);
+
+  if (busted(playerTotal)) {
+    roundSummary({ playerCards, dealerCards, playerTotal, dealerTotal });
+    matchSummary();
     if (playAgain()) {
       continue;
     } else {
       break;
     }
   } else {
-    prompt(`You stayed at ${total(playerCards)}`);
+    prompt(`You stayed at ${playerTotal}`);
   }
 
   // dealer turn
   prompt("Dealer turn...");
 
-  while (total(dealerCards) < 17) {
+  while (total(dealerCards) < DEALER_MINIMUM_TARGET) {
     prompt(`Dealer hits!`);
     dealerCards.push(deck.pop());
     prompt(`Dealer's cards are now: ${hand(dealerCards)}`);
   }
 
-  if (busted(dealerCards)) {
-    prompt(`Dealer total is now: ${total(dealerCards)}`);
-    displayResults(dealerCards, playerCards);
+  dealerTotal = total(dealerCards);
+
+  if (busted(dealerTotal)) {
+    prompt(`Dealer total is now: ${dealerTotal}`);
+    roundSummary({ playerCards, dealerCards, playerTotal, dealerTotal });
+    matchSummary();
     if (playAgain()) {
       continue;
     } else {
       break;
     }
   } else {
-    prompt(`Dealer stays at ${total(dealerCards)}`);
+    prompt(`Dealer stays at ${dealerTotal}`);
   }
 
   // both player and dealer stays - compare cards!
-  console.log("==============");
-  prompt(`Dealer has ${dealerCards}, for a total of: ${total(dealerCards)}`);
-  prompt(`Player has ${playerCards}, for a total of: ${total(playerCards)}`);
-  console.log("==============");
+  roundSummary({ playerCards, dealerCards, playerTotal, dealerTotal });
+  matchSummary();
 
-  displayResults(dealerCards, playerCards);
-
-  if (!playAgain()) break;
+  if (!playAgain()) break; // the first two calls to play again need to continue if the player wishes to play again to avoid finishing execution of the remaining code within the current loop
 }
